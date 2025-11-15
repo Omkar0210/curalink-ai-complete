@@ -1,0 +1,280 @@
+import { useState, useEffect } from "react";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Expert, getExperts, sendToN8n } from "@/lib/api";
+import { Search, UserPlus, Bell, Calendar, Heart } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+
+export default function Experts() {
+  const [experts, setExperts] = useState<Expert[]>([]);
+  const [filteredExperts, setFilteredExperts] = useState<Expert[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [nudgeDialog, setNudgeDialog] = useState<{ open: boolean; expert: Expert | null }>({
+    open: false,
+    expert: null,
+  });
+  const [meetingDialog, setMeetingDialog] = useState<{ open: boolean; expert: Expert | null }>({
+    open: false,
+    expert: null,
+  });
+  const { toast } = useToast();
+
+  useEffect(() => {
+    loadExperts();
+  }, []);
+
+  useEffect(() => {
+    filterExperts();
+  }, [searchQuery, experts]);
+
+  const loadExperts = async () => {
+    try {
+      const data = await getExperts();
+      setExperts(data);
+      setFilteredExperts(data);
+    } catch (error) {
+      console.error("Error loading experts:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filterExperts = () => {
+    if (!searchQuery.trim()) {
+      setFilteredExperts(experts);
+      return;
+    }
+
+    const query = searchQuery.toLowerCase();
+    const filtered = experts.filter(
+      (expert) =>
+        expert.name.toLowerCase().includes(query) ||
+        expert.specialization.toLowerCase().includes(query) ||
+        expert.institution.toLowerCase().includes(query) ||
+        expert.tags.some((tag) => tag.toLowerCase().includes(query))
+    );
+    setFilteredExperts(filtered);
+  };
+
+  const toggleFollow = (expertId: string) => {
+    setExperts((prev) =>
+      prev.map((expert) =>
+        expert.id === expertId
+          ? { ...expert, isFollowing: !expert.isFollowing }
+          : expert
+      )
+    );
+
+    const expert = experts.find((e) => e.id === expertId);
+    const isNowFollowing = !expert?.isFollowing;
+
+    toast({
+      title: isNowFollowing ? "Following" : "Unfollowed",
+      description: isNowFollowing
+        ? `You are now following ${expert?.name}`
+        : `You unfollowed ${expert?.name}`,
+    });
+
+    sendToN8n("expert_follow", { expertId, expert: expert?.name, action: isNowFollowing ? "follow" : "unfollow" });
+  };
+
+  const handleNudge = (expert: Expert) => {
+    setNudgeDialog({ open: true, expert });
+  };
+
+  const sendNudge = () => {
+    toast({
+      title: "Nudge Sent!",
+      description: `We've notified ${nudgeDialog.expert?.name} about your interest in collaboration.`,
+    });
+    sendToN8n("expert_nudge", { expertId: nudgeDialog.expert?.id, expertName: nudgeDialog.expert?.name });
+    setNudgeDialog({ open: false, expert: null });
+  };
+
+  const requestMeeting = () => {
+    toast({
+      title: "Meeting Request Sent!",
+      description: `Your meeting request has been sent to ${meetingDialog.expert?.name}.`,
+    });
+    sendToN8n("meeting_request", { expertId: meetingDialog.expert?.id, expertName: meetingDialog.expert?.name });
+    setMeetingDialog({ open: false, expert: null });
+  };
+
+  if (loading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center">Loading experts...</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container mx-auto px-4 py-8 space-y-8">
+      {/* Header */}
+      <div className="space-y-4">
+        <h1 className="text-4xl font-bold">Expert Directory</h1>
+        <p className="text-xl text-muted-foreground">
+          Connect with leading medical researchers and specialists
+        </p>
+
+        {/* Search */}
+        <div className="relative max-w-xl">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+          <Input
+            placeholder="Search by name, specialization, institution, or tags..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+      </div>
+
+      {/* Results Count */}
+      <div className="text-sm text-muted-foreground">
+        Showing {filteredExperts.length} of {experts.length} experts
+      </div>
+
+      {/* Experts Grid */}
+      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {filteredExperts.map((expert) => (
+          <Card key={expert.id} className="p-6 hover:shadow-lg transition-all">
+            <div className="space-y-4">
+              {/* Header */}
+              <div className="flex items-start gap-4">
+                <img
+                  src={expert.photo}
+                  alt={expert.name}
+                  className="h-16 w-16 rounded-full object-cover"
+                />
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-lg truncate">{expert.name}</h3>
+                  <p className="text-sm text-muted-foreground truncate">
+                    {expert.specialization}
+                  </p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Badge variant="secondary" className="text-xs">
+                      {expert.match}% Match
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+
+              {/* Details */}
+              <div className="space-y-2 text-sm">
+                <p className="text-muted-foreground line-clamp-2">{expert.institution}</p>
+                <p className="text-muted-foreground">{expert.country}</p>
+              </div>
+
+              {/* Tags */}
+              <div className="flex flex-wrap gap-2">
+                {expert.tags.map((tag) => (
+                  <Badge key={tag} variant="outline" className="text-xs">
+                    {tag}
+                  </Badge>
+                ))}
+              </div>
+
+              {/* Actions */}
+              <div className="space-y-2 pt-2">
+                <Button variant="default" className="w-full">
+                  View Profile
+                </Button>
+                <div className="grid grid-cols-3 gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => toggleFollow(expert.id)}
+                    className={expert.isFollowing ? "bg-primary/10" : ""}
+                  >
+                    <Heart
+                      className={`h-4 w-4 ${expert.isFollowing ? "fill-current" : ""}`}
+                    />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleNudge(expert)}
+                  >
+                    <Bell className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setMeetingDialog({ open: true, expert })}
+                  >
+                    <Calendar className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      {/* Nudge Dialog */}
+      <Dialog open={nudgeDialog.open} onOpenChange={(open) => setNudgeDialog({ open, expert: null })}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nudge to Join</DialogTitle>
+            <DialogDescription>
+              Send a notification to {nudgeDialog.expert?.name} to encourage collaboration or joining a study.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Message (Optional)</Label>
+              <Textarea placeholder="Add a personal message..." rows={4} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNudgeDialog({ open: false, expert: null })}>
+              Cancel
+            </Button>
+            <Button onClick={sendNudge}>Send Nudge</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Meeting Dialog */}
+      <Dialog open={meetingDialog.open} onOpenChange={(open) => setMeetingDialog({ open, expert: null })}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Request Meeting</DialogTitle>
+            <DialogDescription>
+              Request a meeting with {meetingDialog.expert?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Preferred Date/Time</Label>
+              <Input type="datetime-local" />
+            </div>
+            <div className="space-y-2">
+              <Label>Purpose</Label>
+              <Textarea placeholder="What would you like to discuss?" rows={4} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMeetingDialog({ open: false, expert: null })}>
+              Cancel
+            </Button>
+            <Button onClick={requestMeeting}>Send Request</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
