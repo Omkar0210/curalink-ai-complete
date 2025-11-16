@@ -14,36 +14,87 @@ interface OnboardingProps {
 }
 
 export default function Onboarding({ onComplete }: OnboardingProps) {
-  const [step, setStep] = useState<"select" | "details">("select");
-  const [userType, setUserType] = useState<UserType | null>(null);
+  const [step, setStep] = useState<"select" | "details">(() => {
+    // If user type is already set, go directly to details
+    const savedUserType = localStorage.getItem("curalink_user_type");
+    return savedUserType ? "details" : "select";
+  });
+  
+  const [userType, setUserType] = useState<UserType | null>(() => {
+    const savedUserType = localStorage.getItem("curalink_user_type");
+    return savedUserType as UserType | null;
+  });
+  
   const { toast } = useToast();
   
-  // Patient form data
-  const [patientData, setPatientData] = useState({
-    name: "",
-    email: "",
-    age: "",
-    gender: "",
-    country: "",
-    city: "",
-    condition: "",
-    symptoms: "",
-    medicalFile: null as File | null,
-    additionalNotes: "",
+  // Patient form data - load from localStorage if exists
+  const [patientData, setPatientData] = useState(() => {
+    const saved = localStorage.getItem("curalink_patient_data");
+    if (saved) {
+      try {
+        return { ...JSON.parse(saved), medicalFile: null };
+      } catch {
+        return {
+          name: "",
+          email: "",
+          age: "",
+          gender: "",
+          country: "",
+          city: "",
+          condition: "",
+          symptoms: "",
+          medicalFile: null as File | null,
+          additionalNotes: "",
+        };
+      }
+    }
+    return {
+      name: "",
+      email: "",
+      age: "",
+      gender: "",
+      country: "",
+      city: "",
+      condition: "",
+      symptoms: "",
+      medicalFile: null as File | null,
+      additionalNotes: "",
+    };
   });
 
-  // Researcher form data
-  const [researcherData, setResearcherData] = useState({
-    name: "",
-    email: "",
-    institution: "",
-    fieldOfResearch: "",
-    yearsOfExperience: "",
-    orcid: "",
-    researchGate: "",
-    linkedin: "",
-    bio: "",
-    profilePicture: null as File | null,
+  // Researcher form data - load from localStorage if exists
+  const [researcherData, setResearcherData] = useState(() => {
+    const saved = localStorage.getItem("curalink_researcher_data");
+    if (saved) {
+      try {
+        return { ...JSON.parse(saved), profilePicture: null };
+      } catch {
+        return {
+          name: "",
+          email: "",
+          institution: "",
+          fieldOfResearch: "",
+          yearsOfExperience: "",
+          orcid: "",
+          researchGate: "",
+          linkedin: "",
+          bio: "",
+          profilePicture: null as File | null,
+        };
+      }
+    }
+    return {
+      name: "",
+      email: "",
+      institution: "",
+      fieldOfResearch: "",
+      yearsOfExperience: "",
+      orcid: "",
+      researchGate: "",
+      linkedin: "",
+      bio: "",
+      profilePicture: null as File | null,
+    };
   });
 
   const handleUserTypeSelect = (type: UserType) => {
@@ -169,7 +220,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
             <div className="space-y-2">
               <h2 className="text-3xl font-bold">Patient Information</h2>
               <p className="text-muted-foreground">
-                Help us personalize your experience
+                {patientData.name ? "Update your information below" : "Help us personalize your experience"}
               </p>
             </div>
 
@@ -352,7 +403,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
             <div className="space-y-2">
               <h2 className="text-3xl font-bold">Researcher Information</h2>
               <p className="text-muted-foreground">
-                Set up your research profile
+                {researcherData.name ? "Update your research profile" : "Set up your research profile"}
               </p>
             </div>
 
