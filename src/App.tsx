@@ -40,7 +40,16 @@ const App = () => {
   const handleChangeAccountType = () => {
     const newType = userType === "patient" ? "researcher" : "patient";
     setUserType(newType);
+    setIsOnboarded(false); // Show onboarding form to edit/enter information
     localStorage.setItem("curalink_user_type", newType);
+  };
+
+  const handleLogout = () => {
+    setUserType(null);
+    setIsOnboarded(false);
+    localStorage.removeItem("curalink_user_type");
+    localStorage.removeItem("curalink_patient_data");
+    localStorage.removeItem("curalink_researcher_data");
   };
 
   return (
@@ -60,6 +69,7 @@ const App = () => {
               <Navigation 
                 userType={userType} 
                 onChangeAccountType={handleChangeAccountType}
+                onLogout={handleLogout}
               />
               <Routes>
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
