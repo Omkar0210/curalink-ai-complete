@@ -16,59 +16,101 @@ export function VoiceAssistant() {
   const [error, setError] = useState<string>("");
 
   useEffect(() => {
-    console.log("Loading VAPI SDK...");
+    console.log("[VoiceAssistant] Component mounted, loading VAPI SDK...");
+    
+    // Check if SDK is already loaded
+    if (window.vapiSDK) {
+      console.log("[VoiceAssistant] VAPI SDK already loaded");
+      try {
+        const vapiInstance = window.vapiSDK("8c91c3b0-bdef-4ceb-aec7-77f6653e8185");
+        console.log("[VoiceAssistant] VAPI instance created:", vapiInstance);
+        setVapi(vapiInstance);
+        setIsLoading(false);
+        return;
+      } catch (err) {
+        console.error("[VoiceAssistant] Error creating VAPI instance:", err);
+        setError("Failed to initialize voice assistant");
+        setIsLoading(false);
+        return;
+      }
+    }
+
     // Load VAPI SDK
     const script = document.createElement("script");
     script.src = "https://cdn.jsdelivr.net/gh/VapiAI/html-script-tag@latest/dist/assets/index.js";
     script.async = true;
+    
+    const timeout = setTimeout(() => {
+      console.error("[VoiceAssistant] SDK loading timeout");
+      setError("Voice assistant loading timeout");
+      setIsLoading(false);
+    }, 10000);
+
     script.onload = () => {
-      console.log("VAPI SDK loaded successfully");
+      clearTimeout(timeout);
+      console.log("[VoiceAssistant] VAPI SDK loaded successfully");
+      console.log("[VoiceAssistant] window.vapiSDK exists:", !!window.vapiSDK);
+      
       if (window.vapiSDK) {
         try {
+          console.log("[VoiceAssistant] Creating VAPI instance with key: 8c91c3b0-bdef-4ceb-aec7-77f6653e8185");
           const vapiInstance = window.vapiSDK("8c91c3b0-bdef-4ceb-aec7-77f6653e8185");
-          console.log("VAPI instance created:", vapiInstance);
+          console.log("[VoiceAssistant] VAPI instance created successfully:", vapiInstance);
           setVapi(vapiInstance);
           setIsLoading(false);
         } catch (err) {
-          console.error("Error creating VAPI instance:", err);
+          console.error("[VoiceAssistant] Error creating VAPI instance:", err);
           setError("Failed to initialize voice assistant");
           setIsLoading(false);
         }
       } else {
-        console.error("VAPI SDK not found on window");
+        console.error("[VoiceAssistant] VAPI SDK not found on window after load");
         setError("Voice assistant SDK not available");
         setIsLoading(false);
       }
     };
-    script.onerror = () => {
-      console.error("Failed to load VAPI SDK");
+    
+    script.onerror = (err) => {
+      clearTimeout(timeout);
+      console.error("[VoiceAssistant] Failed to load VAPI SDK:", err);
       setError("Failed to load voice assistant");
       setIsLoading(false);
     };
+    
     document.body.appendChild(script);
+    console.log("[VoiceAssistant] SDK script added to document");
 
     return () => {
+      clearTimeout(timeout);
       if (script.parentNode) {
         document.body.removeChild(script);
+        console.log("[VoiceAssistant] Cleanup: SDK script removed");
       }
     };
   }, []);
 
   const startCall = async () => {
     if (!vapi) {
-      console.error("VAPI not initialized");
+      console.error("[VoiceAssistant] VAPI not initialized, cannot start call");
+      setError("Voice assistant not ready");
       return;
     }
     
+    console.log("[VoiceAssistant] Starting voice call...");
+    console.log("[VoiceAssistant] VAPI instance:", vapi);
+    console.log("[VoiceAssistant] Assistant ID: 350e5c66-88a2-493d-9958-a2b955ad94de");
+    
     setIsLoading(true);
+    setError("");
+    
     try {
-      console.log("Starting voice call...");
-      await vapi.start("350e5c66-88a2-493d-9958-a2b955ad94de");
-      console.log("Voice call started");
+      const result = await vapi.start("350e5c66-88a2-493d-9958-a2b955ad94de");
+      console.log("[VoiceAssistant] Voice call started successfully:", result);
       setIsActive(true);
     } catch (error) {
-      console.error("Error starting call:", error);
-      setError("Failed to start voice call");
+      console.error("[VoiceAssistant] Error starting call:", error);
+      console.error("[VoiceAssistant] Error details:", JSON.stringify(error, null, 2));
+      setError(`Failed to start: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsLoading(false);
     }
@@ -76,45 +118,76 @@ export function VoiceAssistant() {
 
   const endCall = () => {
     if (!vapi) {
-      console.error("VAPI not initialized");
+      console.error("[VoiceAssistant] VAPI not initialized, cannot end call");
       return;
     }
     
-    console.log("Ending voice call...");
-    vapi.stop();
-    setIsActive(false);
+    console.log("[VoiceAssistant] Ending voice call...");
+    try {
+      vapi.stop();
+      console.log("[VoiceAssistant] Voice call ended successfully");
+      setIsActive(false);
+      setError("");
+    } catch (error) {
+      console.error("[VoiceAssistant] Error ending call:", error);
+      setError("Failed to end call");
+    }
   };
 
   return (
     <div className="fixed bottom-24 right-6 z-40">
       {error && (
-        <div className="mb-2 text-xs text-destructive bg-destructive/10 px-3 py-1 rounded">
-          {error}
+        <div className="mb-2 max-w-xs text-xs text-destructive bg-destructive/10 px-3 py-2 rounded-lg shadow-lg">
+          <div className="font-semibold mb-1">Voice Assistant Error</div>
+          <div>{error}</div>
+          {!vapi && !isLoading && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="mt-2 w-full"
+              onClick={() => window.location.reload()}
+            >
+              Reload Page
+            </Button>
+          )}
         </div>
       )}
       {!isActive ? (
-        <Button
-          size="lg"
-          className={cn(
-            "h-14 w-14 rounded-full shadow-lg",
-            isLoading && "opacity-50 cursor-not-allowed"
+        <div className="flex flex-col items-center gap-2">
+          <Button
+            size="lg"
+            className={cn(
+              "h-14 w-14 rounded-full shadow-lg transition-all hover:scale-110",
+              isLoading && "opacity-50 cursor-not-allowed animate-pulse"
+            )}
+            onClick={startCall}
+            disabled={isLoading || !vapi}
+            title={
+              isLoading 
+                ? "Loading voice assistant..." 
+                : !vapi 
+                ? "Voice assistant unavailable" 
+                : "Start voice call"
+            }
+          >
+            <Mic className="h-6 w-6" />
+          </Button>
+          {isLoading && (
+            <div className="text-xs text-muted-foreground bg-card px-2 py-1 rounded shadow">
+              Loading...
+            </div>
           )}
-          onClick={startCall}
-          disabled={isLoading || !vapi}
-          title={isLoading ? "Loading..." : !vapi ? "Voice assistant unavailable" : "Start voice call"}
-        >
-          <Mic className="h-6 w-6" />
-        </Button>
+        </div>
       ) : (
         <div className="flex flex-col gap-2 items-center">
-          <div className="h-14 w-14 rounded-full bg-primary animate-pulse flex items-center justify-center">
+          <div className="h-14 w-14 rounded-full bg-primary animate-pulse flex items-center justify-center shadow-lg">
             <Mic className="h-6 w-6 text-primary-foreground" />
           </div>
           <Button
             size="sm"
             variant="destructive"
             onClick={endCall}
-            className="rounded-full"
+            className="rounded-full shadow-lg"
           >
             <Phone className="h-4 w-4 mr-1" />
             End Call
