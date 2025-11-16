@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 
 interface NavigationProps {
   userType: "patient" | "researcher";
-  onLogout: () => void;
+  onLogout?: () => void;
   onChangeAccountType?: () => void;
 }
 
@@ -123,17 +123,19 @@ export function Navigation({ userType, onLogout, onChangeAccountType }: Navigati
                       </Button>
                     )}
 
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start gap-3 px-3"
-                      onClick={() => {
-                        setOpen(false);
-                        onLogout();
-                      }}
-                    >
-                      <LogOut className="h-4 w-4" />
-                      Logout
-                    </Button>
+                    {onLogout && (
+                      <Button
+                        variant="ghost"
+                        className="w-full justify-start gap-3 px-3"
+                        onClick={() => {
+                          setOpen(false);
+                          onLogout();
+                        }}
+                      >
+                        <LogOut className="h-4 w-4" />
+                        Logout
+                      </Button>
+                    )}
                   </div>
                 </div>
               </SheetContent>
