@@ -1,0 +1,13 @@
+-- Insert sample experts
+INSERT INTO public.experts (name, specialization, institution, country, tags, photo, match_score, latitude, longitude) VALUES
+('Dr. Sarah Chen', 'Oncology', 'Stanford Medical Center', 'United States', ARRAY['Cancer Research', 'Immunotherapy', 'Clinical Trials'], 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=400', 95, 37.4419, -122.1430),
+('Prof. James Wilson', 'Cardiology', 'Mayo Clinic', 'United States', ARRAY['Heart Disease', 'Preventive Care', 'Cardiac Surgery'], 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=400', 92, 44.0225, -92.4660),
+('Dr. Maria Rodriguez', 'Neurology', 'Johns Hopkins Hospital', 'United States', ARRAY['Alzheimer''s', 'Brain Research', 'Neurodegenerative Diseases'], 'https://images.unsplash.com/photo-1594824476967-48c8b964273f?w=400', 88, 39.2970, -76.5930),
+('Dr. Ahmed Hassan', 'Infectious Diseases', 'Harvard Medical School', 'United States', ARRAY['Virology', 'Epidemiology', 'Public Health'], 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=400', 90, 42.3398, -71.0892),
+('Prof. Emily Thompson', 'Pediatrics', 'Children''s Hospital Boston', 'United States', ARRAY['Child Development', 'Pediatric Care', 'Genetics'], 'https://images.unsplash.com/photo-1638202993928-7267aad84c31?w=400', 87, 42.3370, -71.1061),
+('Dr. Raj Patel', 'Endocrinology', 'Cleveland Clinic', 'United States', ARRAY['Diabetes', 'Hormonal Disorders', 'Metabolism'], 'https://images.unsplash.com/photo-1582750433449-648ed127bb54?w=400', 85, 41.4993, -81.6944),
+('Dr. Lisa Anderson', 'Psychiatry', 'UCLA Medical Center', 'United States', ARRAY['Mental Health', 'Depression', 'Anxiety Disorders'], 'https://images.unsplash.com/photo-1551836022-d5d88e9218df?w=400', 89, 34.0689, -118.4452),
+('Prof. Michael Brown', 'Orthopedics', 'Hospital for Special Surgery', 'United States', ARRAY['Joint Replacement', 'Sports Medicine', 'Bone Health'], 'https://images.unsplash.com/photo-1537368910025-700350fe46c7?w=400', 86, 40.7648, -73.9547),
+('Dr. Sophie Laurent', 'Dermatology', 'University of Paris Hospital', 'France', ARRAY['Skin Cancer', 'Cosmetic Dermatology', 'Melanoma'], 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400', 84, 48.8566, 2.3522),
+('Dr. Hans Mueller', 'Gastroenterology', 'Charité Berlin', 'Germany', ARRAY['Digestive Disorders', 'Liver Disease', 'Gut Health'], 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=400', 83, 52.5200, 13.4050)
+ON CONFLICT (id) DO NOTHING;
