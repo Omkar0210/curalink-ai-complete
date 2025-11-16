@@ -16,6 +16,7 @@ import Publications from "./pages/Publications";
 import Forums from "./pages/Forums";
 import Favourites from "./pages/Favourites";
 import MyResearch from "./pages/MyResearch";
+import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -81,6 +82,7 @@ const App = () => {
                 <Route path="/publications" element={<Publications userId="guest" />} />
                 <Route path="/forums" element={<Forums userId="guest" userName="Guest" />} />
                 <Route path="/favourites" element={<Favourites userId="guest" />} />
+                <Route path="/profile" element={<Profile userType={userType} />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
               <Chatbot />
