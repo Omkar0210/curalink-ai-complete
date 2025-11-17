@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,13 +7,12 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { UserType } from "@/lib/types";
 
-export function AuthPage({ userType }: { userType: UserType }) {
+export function AuthPage({ userType, onAuthSuccess }: { userType: UserType; onAuthSuccess: () => void }) {
   const [isLogin, setIsLogin] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
   const { toast } = useToast();
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -23,7 +21,7 @@ export function AuthPage({ userType }: { userType: UserType }) {
 
     try {
       if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
@@ -34,25 +32,34 @@ export function AuthPage({ userType }: { userType: UserType }) {
           title: "Welcome back!",
           description: "You've successfully logged in.",
         });
-        navigate("/");
+        
+        onAuthSuccess();
       } else {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
             data: {
               name,
-              user_type: userType,
             },
-            emailRedirectTo: `${window.location.origin}/`,
           },
         });
 
         if (error) throw error;
 
+        // Create profile after signup
+        if (data.user) {
+          await supabase.from("profiles").insert({
+            id: data.user.id,
+            email: data.user.email!,
+            name: name,
+            user_type: "patient", // Default, will be set during onboarding
+          });
+        }
+
         toast({
           title: "Account created!",
-          description: "You can now sign in.",
+          description: "Please check your email to verify your account, then sign in.",
         });
         setIsLogin(true);
       }

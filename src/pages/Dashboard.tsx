@@ -6,6 +6,7 @@ import { getRecommendations } from "@/lib/supabase-api";
 import { Expert, ClinicalTrial, Publication } from "@/lib/api";
 import { UserType } from "@/lib/types";
 import { calculateMatchScore } from "@/lib/match-scoring";
+import CollaborationManager from "@/components/CollaborationManager";
 import {
   TrendingUp,
   Users,
@@ -172,6 +173,14 @@ export default function Dashboard({ userType, userId }: DashboardProps) {
           </div>
         </div>
       </Card>
+
+      {/* Collaborations */}
+      {userType === "researcher" && (
+        <div className="space-y-4">
+          <h2 className="text-2xl font-bold">My Collaborations</h2>
+          <CollaborationManager userId={userId} />
+        </div>
+      )}
 
       {/* Recommendations */}
       <div className="space-y-4">
