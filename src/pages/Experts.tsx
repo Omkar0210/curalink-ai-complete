@@ -621,11 +621,7 @@ export default function Experts({ userId, userType }: { userId: string; userType
               Cancel
             </Button>
             <Button onClick={() => {
-              toast({
-                title: "Meeting Request Sent!",
-                description: `Your meeting request has been sent to ${meetingDialog.expert?.name}`,
-              });
-              setMeetingDialog({ open: false, expert: null });
+              requestMeeting();
             }}>
               Send Request
             </Button>
