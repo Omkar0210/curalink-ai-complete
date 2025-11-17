@@ -8,7 +8,6 @@ import { UserType } from "@/lib/types";
 import { Navigation } from "@/components/Navigation";
 import { Chatbot } from "@/components/Chatbot";
 import { VoiceAssistant } from "@/components/VoiceAssistant";
-import { AuthPage } from "./components/auth/AuthPage";
 import Onboarding from "./pages/Onboarding";
 import Dashboard from "./pages/Dashboard";
 import Experts from "./pages/Experts";
@@ -28,23 +27,22 @@ const App = () => {
   const [isOnboarded, setIsOnboarded] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [userName, setUserName] = useState<string>("User");
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    checkAuth();
+    initializeAuth();
   }, []);
 
-  const checkAuth = async () => {
+  const initializeAuth = async () => {
     try {
+      // Check if user has existing session
       const { data: { session } } = await supabase.auth.getSession();
       
       if (session?.user) {
-        setIsAuthenticated(true);
         setUserId(session.user.id);
-        setUserName(session.user.user_metadata?.name || session.user.email || "User");
+        setUserName(session.user.user_metadata?.name || "User");
         
-        // Get user profile to check user type and onboarding
+        // Get user profile
         const { data: profile } = await supabase
           .from("profiles")
           .select("user_type")
@@ -55,55 +53,79 @@ const App = () => {
           setUserType(profile.user_type as UserType);
           setIsOnboarded(true);
         }
+      } else {
+        // Sign in anonymously for guest users
+        const { data, error } = await supabase.auth.signInAnonymously();
+        
+        if (!error && data.user) {
+          setUserId(data.user.id);
+          setUserName("Guest");
+        }
+      }
+      
+      // Check localStorage for onboarding status
+      const savedUserType = localStorage.getItem("curalink_user_type");
+      if (savedUserType && !userType) {
+        setUserType(savedUserType as UserType);
+        setIsOnboarded(true);
       }
     } catch (error) {
-      console.error("Auth check error:", error);
+      console.error("Auth initialization error:", error);
     } finally {
       setLoading(false);
     }
   };
 
   const handleOnboardingComplete = async (type: UserType) => {
-    if (!userId) return;
+    setUserType(type);
+    setIsOnboarded(true);
+    localStorage.setItem("curalink_user_type", type);
     
-    try {
-      // Update profile with user type
-      await supabase
-        .from("profiles")
-        .update({ user_type: type })
-        .eq("id", userId);
-      
-      setUserType(type);
-      setIsOnboarded(true);
-    } catch (error) {
-      console.error("Error completing onboarding:", error);
+    // Update profile if user is authenticated
+    if (userId) {
+      try {
+        const { data: existingProfile } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("id", userId)
+          .single();
+        
+        if (existingProfile) {
+          await supabase
+            .from("profiles")
+            .update({ user_type: type })
+            .eq("id", userId);
+        } else {
+          await supabase.from("profiles").insert({
+            id: userId,
+            email: userName + "@anonymous.local",
+            name: userName,
+            user_type: type,
+          });
+        }
+      } catch (error) {
+        console.error("Error updating profile:", error);
+      }
     }
   };
 
-  const handleChangeAccountType = async () => {
-    if (!userId) return;
-    
+  const handleChangeAccountType = () => {
     const newType = userType === "patient" ? "researcher" : "patient";
-    
-    try {
-      await supabase
-        .from("profiles")
-        .update({ user_type: newType })
-        .eq("id", userId);
-      
-      setUserType(newType);
-      setIsOnboarded(false);
-    } catch (error) {
-      console.error("Error changing account type:", error);
-    }
+    setUserType(newType);
+    setIsOnboarded(false);
+    localStorage.setItem("curalink_user_type", newType);
   };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setUserType(null);
     setIsOnboarded(false);
-    setIsAuthenticated(false);
     setUserId(null);
+    localStorage.removeItem("curalink_user_type");
+    localStorage.removeItem("curalink_patient_data");
+    localStorage.removeItem("curalink_researcher_data");
+    // Re-initialize with new anonymous session
+    initializeAuth();
   };
 
   if (loading) {
@@ -120,9 +142,7 @@ const App = () => {
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          {!isAuthenticated ? (
-            <AuthPage userType="patient" onAuthSuccess={checkAuth} />
-          ) : !isOnboarded || !userType ? (
+          {!isOnboarded || !userType ? (
             <>
               <Onboarding onComplete={handleOnboardingComplete} />
               <Chatbot />
