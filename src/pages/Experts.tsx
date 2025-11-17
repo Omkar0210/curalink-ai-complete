@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Search, UserPlus, Bell, Calendar, Heart, MapPin } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getExperts, followExpert, unfollowExpert, isFollowingExpert, requestCollaboration } from "@/lib/supabase-api";
+import { calculateMatchScore } from "@/lib/match-scoring";
 
 interface Expert {
   id: string;
@@ -74,11 +75,46 @@ export default function Experts({ userId, userType }: { userId: string; userType
   const loadExperts = async () => {
     try {
       const data = await getExperts();
-      setExperts(data);
-      setFilteredExperts(data);
+      
+      // Get user's condition/field for match scoring
+      let userCondition = "";
+      let userField = "";
+      const patientData = localStorage.getItem("curalink_patient_data");
+      const researcherData = localStorage.getItem("curalink_researcher_data");
+      
+      if (patientData) {
+        try {
+          const parsed = JSON.parse(patientData);
+          userCondition = parsed.condition || "";
+        } catch (e) {}
+      }
+      if (researcherData) {
+        try {
+          const parsed = JSON.parse(researcherData);
+          userField = parsed.fieldOfResearch || "";
+        } catch (e) {}
+      }
+      
+      // Calculate match scores
+      const expertsWithScores = data.map(expert => ({
+        ...expert,
+        match_score: calculateMatchScore(
+          userCondition,
+          userField,
+          expert.tags,
+          expert.specialization,
+          ""
+        )
+      }));
+      
+      // Sort by match score (highest first)
+      expertsWithScores.sort((a, b) => (b.match_score || 0) - (a.match_score || 0));
+      
+      setExperts(expertsWithScores);
+      setFilteredExperts(expertsWithScores);
       
       const followingStatus: Record<string, boolean> = {};
-      for (const expert of data) {
+      for (const expert of expertsWithScores) {
         followingStatus[expert.id] = await isFollowingExpert(userId, expert.id);
       }
       setFollowingMap(followingStatus);
@@ -310,8 +346,14 @@ export default function Experts({ userId, userType }: { userId: string; userType
                   <p className="text-sm text-muted-foreground truncate">
                     {expert.specialization}
                   </p>
-                <div className="flex items-center gap-2 mt-1">
-                    <Badge variant="secondary" className="text-xs">
+                  <div className="flex items-center gap-2 mt-1">
+                    <Badge 
+                      variant={
+                        (expert.match_score || 0) >= 85 ? "default" :
+                        (expert.match_score || 0) >= 70 ? "secondary" : "outline"
+                      }
+                      className="text-xs"
+                    >
                       {expert.match_score || 0}% Match
                     </Badge>
                   </div>

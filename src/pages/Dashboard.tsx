@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { getRecommendations } from "@/lib/supabase-api";
 import { Expert, ClinicalTrial, Publication } from "@/lib/api";
 import { UserType } from "@/lib/types";
+import { calculateMatchScore } from "@/lib/match-scoring";
 import {
   TrendingUp,
   Users,
@@ -37,38 +38,66 @@ export default function Dashboard({ userType, userId }: DashboardProps) {
         ...data.publications
       ];
 
-      // For researchers, filter recommendations based on their field of research
-      if (userType === "researcher") {
-        const researcherData = localStorage.getItem("curalink_researcher_data");
-        if (researcherData) {
-          try {
-            const researcher = JSON.parse(researcherData);
-            const field = researcher.fieldOfResearch?.toLowerCase() || "";
-            
-            if (field) {
-              // Filter publications by field relevance
-              allRecs = allRecs.filter((rec: any) => {
-                if (rec.abstract) {
-                  // Publication
-                  const content = (rec.abstract + " " + rec.title + " " + rec.tags.join(" ")).toLowerCase();
-                  return content.includes(field) || rec.tags.some((tag: string) => 
-                    tag.toLowerCase().includes(field) || field.includes(tag.toLowerCase())
-                  );
-                } else if (rec.description) {
-                  // Clinical Trial
-                  const content = (rec.description + " " + rec.title + " " + rec.tags.join(" ")).toLowerCase();
-                  return content.includes(field) || rec.tags.some((tag: string) => 
-                    tag.toLowerCase().includes(field) || field.includes(tag.toLowerCase())
-                  );
-                }
-                return true; // Keep experts
-              });
-            }
-          } catch (error) {
-            console.error("Error parsing researcher data:", error);
+      // Get user data for match scoring
+      let userCondition = "";
+      let userField = "";
+      const patientData = localStorage.getItem("curalink_patient_data");
+      const researcherData = localStorage.getItem("curalink_researcher_data");
+      
+      if (patientData) {
+        try {
+          const parsed = JSON.parse(patientData);
+          userCondition = parsed.condition || "";
+        } catch (e) {}
+      }
+      if (researcherData) {
+        try {
+          const parsed = JSON.parse(researcherData);
+          userField = parsed.fieldOfResearch || "";
+        } catch (e) {}
+      }
+
+      // Calculate match scores and filter for researchers
+      if (userType === "researcher" && researcherData) {
+        try {
+          const researcher = JSON.parse(researcherData);
+          const field = researcher.fieldOfResearch?.toLowerCase() || "";
+          
+          if (field) {
+            allRecs = allRecs.filter((rec: any) => {
+              if (rec.abstract) {
+                const content = (rec.abstract + " " + rec.title + " " + rec.tags.join(" ")).toLowerCase();
+                return content.includes(field) || rec.tags.some((tag: string) => 
+                  tag.toLowerCase().includes(field) || field.includes(tag.toLowerCase())
+                );
+              } else if (rec.description) {
+                const content = (rec.description + " " + rec.title + " " + rec.tags.join(" ")).toLowerCase();
+                return content.includes(field) || rec.tags.some((tag: string) => 
+                  tag.toLowerCase().includes(field) || field.includes(tag.toLowerCase())
+                );
+              }
+              return true;
+            });
           }
+        } catch (error) {
+          console.error("Error parsing researcher data:", error);
         }
       }
+
+      // Add match scores to all recommendations
+      allRecs = allRecs.map((rec: any) => ({
+        ...rec,
+        match_score: calculateMatchScore(
+          userCondition,
+          userField,
+          rec.tags || [],
+          rec.specialization || "",
+          rec.title || ""
+        )
+      }));
+
+      // Sort by match score
+      allRecs.sort((a: any, b: any) => (b.match_score || 0) - (a.match_score || 0));
       
       setRecommendations(allRecs);
     } catch (error) {
@@ -203,6 +232,7 @@ interface RecommendationItem {
 
 function RecommendationCard({ recommendation }: { recommendation: RecommendationItem }) {
   const { type, reason } = recommendation;
+  const matchScore = (recommendation as any).match_score || 0;
 
   const getNavigationPath = () => {
     switch (type) {
@@ -220,9 +250,20 @@ function RecommendationCard({ recommendation }: { recommendation: Recommendation
   return (
     <Card className="p-6 hover:shadow-lg transition-shadow">
       <div className="space-y-4">
-        <Badge variant="secondary" className="capitalize">
-          {type}
-        </Badge>
+        <div className="flex items-center justify-between">
+          <Badge variant="secondary" className="capitalize">
+            {type}
+          </Badge>
+          <Badge 
+            variant={
+              matchScore >= 85 ? "default" :
+              matchScore >= 70 ? "secondary" : "outline"
+            }
+            className="text-xs"
+          >
+            {matchScore}% Match
+          </Badge>
+        </div>
 
         {type === "expert" && (
           <>
